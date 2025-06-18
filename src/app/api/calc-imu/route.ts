@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { calcolaIMUSingoloImmobile, calcolaIMUProgetto } from '@/lib/calc-imu';
-import { Immobile, InputCalcoloIMU } from '@/lib/types';
+import { calcolaIMUCompleto } from '@/lib/calc-imu';
+
+// Interfacce per il request body
+interface ImmobileInput {
+  id: string;
+  indirizzo: string;
+  citta: string;
+  provincia: string;
+  categoria: string;
+  rendita: number;
+  esenzioni?: {
+    prima_casa?: boolean;
+    esenzione_rurale?: boolean;
+    esenzione_parziale?: boolean;
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,38 +22,25 @@ export async function POST(request: NextRequest) {
     
     console.log('📨 Richiesta calcolo IMU ricevuta:', body);
 
-    // Determina se è calcolo singolo o progetto
-    if (body.tipo === 'singolo' && body.immobile) {
-      // 🏠 Calcolo singolo immobile
-      const input: InputCalcoloIMU = body.immobile;
-      const risultato = await calcolaIMUSingoloImmobile(input);
-      
-      return NextResponse.json({
-        success: true,
-        tipo: 'singolo',
-        risultato
-      });
-
-    } else if (body.tipo === 'progetto' && body.immobili) {
-      // 🏘️ Calcolo progetto completo
-      const immobili: Immobile[] = body.immobili;
-      const risultato = await calcolaIMUProgetto(immobili);
-      
-      return NextResponse.json({
-        success: true,
-        tipo: 'progetto',
-        risultato
-      });
-
-    } else {
+    // Verifica che ci siano immobili da calcolare
+    if (!body.immobili || !Array.isArray(body.immobili) || body.immobili.length === 0) {
       return NextResponse.json(
         { 
           success: false, 
-          error: 'Tipo di calcolo non riconosciuto. Specificare tipo: "singolo" o "progetto"' 
+          error: 'Nessun immobile fornito per il calcolo' 
         },
         { status: 400 }
       );
     }
+
+    // Calcolo IMU per tutti gli immobili
+    const immobili: ImmobileInput[] = body.immobili;
+    const risultato = await calcolaIMUCompleto(immobili);
+    
+    return NextResponse.json({
+      success: true,
+      risultato
+    });
 
   } catch (error) {
     console.error('❌ Errore nel calcolo IMU:', error);

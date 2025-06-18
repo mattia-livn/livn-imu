@@ -55,9 +55,9 @@ export function ReportBanner({ risultatoIMU, immobili, onClose }: ReportBannerPr
       
       // Messaggio più user-friendly per errori di configurazione
       if (errorMessage.includes('Configurazione email mancante')) {
-        setError('⚙️ Sistema email non configurato. Contatta l\'amministratore per abilitare l\'invio report.');
+        setError('⚙️ Sistema email non configurato. Contatta l&apos;amministratore per abilitare l&apos;invio report.');
       } else if (errorMessage.includes('Missing credentials')) {
-        setError('⚙️ Credenziali email non valide. Contatta l\'amministratore.');
+        setError('⚙️ Credenziali email non valide. Contatta l&apos;amministratore.');
       } else {
         setError(errorMessage);
       }
@@ -147,7 +147,7 @@ export function ReportBanner({ risultatoIMU, immobili, onClose }: ReportBannerPr
             💡 Il report includerà: dati immobili, aliquote, calcoli dettagliati e scadenze
           </div>
           <div className="mt-2 text-xs text-gray-500">
-            📧 Per abilitare l'invio email è necessario configurare RESEND_API_KEY nel file .env.local
+            📧 Per abilitare l&apos;invio email è necessario configurare RESEND_API_KEY nel file .env.local
           </div>
         </div>
         
