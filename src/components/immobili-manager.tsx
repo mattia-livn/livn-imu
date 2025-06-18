@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Immobile } from '../lib/types';
 import { FileUploadArea } from './file-upload-area';
 import { ImmobiliTable } from './immobili-table';
+import { ReportBanner } from './report-banner';
 
 interface ImmobileData {
   indirizzo: string;
@@ -22,6 +23,7 @@ export function ImmoiliManager() {
   const [calcoloInCorso, setCalcoloInCorso] = useState(false);
   const [uploadInCorso, setUploadInCorso] = useState(false);
   const [risultatoIMU, setRisultatoIMU] = useState<any>(null);
+  const [showReportBanner, setShowReportBanner] = useState(false);
 
   const handleAddImmobile = (immobile: Omit<Immobile, 'id'>) => {
     const newImmobile: Immobile = {
@@ -128,6 +130,7 @@ export function ImmoiliManager() {
 
       const risultato = await response.json();
       setRisultatoIMU(risultato.risultato);
+      setShowReportBanner(true); // Mostra il banner per il report
 
     } catch (error) {
       console.error('Errore nel calcolo IMU:', error);
@@ -222,6 +225,15 @@ export function ImmoiliManager() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Banner Report - Posizionato DOPO i risultati */}
+      {showReportBanner && risultatoIMU && (
+        <ReportBanner 
+          risultatoIMU={risultatoIMU}
+          immobili={immobili}
+          onClose={() => setShowReportBanner(false)}
+        />
       )}
     </div>
   );
