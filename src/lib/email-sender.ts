@@ -3,7 +3,7 @@ import { Resend } from 'resend';
 interface EmailConfig {
   to: string;
   pdfBuffer: Buffer;
-  risultatoIMU: any;
+  risultatoIMU: { imu_totale: number; dettaglio_per_immobile: Array<{ id: string; aliquota_utilizzata: number; base_imponibile: number; imu_calcolata: number; }> };
 }
 
 export function createResendClient() {

@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { Mail, FileText, Send, Check, AlertCircle } from 'lucide-react';
 
 interface ReportBannerProps {
-  risultatoIMU: any;
-  immobili: any[];
+  risultatoIMU: { imu_totale: number; dettaglio_per_immobile: Array<{ id: string; aliquota_utilizzata: number; base_imponibile: number; imu_calcolata: number; }> };
+  immobili: Array<{ id: string; indirizzo: string; citta: string; provincia: string; categoria: string; rendita: number; }>;
   onClose?: () => void;
 }
 

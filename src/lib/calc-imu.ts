@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { createClient } from '@supabase/supabase-js';
 import { 
   Immobile, 
   InputCalcoloIMU, 
@@ -7,6 +7,11 @@ import {
   AliquotaIMU,
   TipoContratto 
 } from './types';
+
+// Configurazione Supabase
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
  * 🏠 CALCOLA IMU PER SINGOLO IMMOBILE
@@ -17,13 +22,12 @@ export async function calcolaIMUSingoloImmobile(input: InputCalcoloIMU): Promise
 
   // 1️⃣ Carica aliquota da Supabase
   const { data: aliquote, error } = await supabase
-    .from('imu_aliquote')
+    .from('aliquote_imu')
     .select('*')
     .eq('anno', input.anno)
-    .eq('comune', input.citta.toUpperCase())  // Usa 'citta' invece di 'comune'
-    .eq('provincia', input.provincia.toUpperCase())
-    .eq('categoria', input.categoria.toUpperCase())
-    .limit(1);
+    .eq('comune', input.citta)
+    .eq('provincia', input.provincia)
+    .eq('categoria', input.categoria);
 
   if (error) {
     console.error('❌ Errore nel recupero aliquote:', error);
@@ -38,43 +42,43 @@ export async function calcolaIMUSingoloImmobile(input: InputCalcoloIMU): Promise
   console.log('📊 Aliquota trovata:', aliquota);
 
   // 2️⃣ Determina quale aliquota applicare
-  let percentualeApplicata: number;
+  let percentualeApplicata: number | null = null;
 
   if (input.abitazione_principale) {
     // Abitazione principale
     if (['A/1', 'A/8', 'A/9'].includes(input.categoria.toUpperCase())) {
-      percentualeApplicata = (aliquota as any)['%_abitazione_principale_lusso'];
+      percentualeApplicata = aliquota['%_abitazione_principale_lusso'];
       console.log('🏛️ Applicata aliquota abitazione principale di lusso');
     } else {
-      percentualeApplicata = (aliquota as any)['%_abitazione_principale'];
+      percentualeApplicata = aliquota['%_abitazione_principale'];
       console.log('🏠 Applicata aliquota abitazione principale');
     }
   } else {
     // Non abitazione principale - controlla tipo contratto
     switch (input.tipo_contratto) {
       case 'libero':
-        percentualeApplicata = (aliquota as any)['%_locato_libero'];
+        percentualeApplicata = aliquota['%_locato_libero'];
         console.log('📄 Applicata aliquota locazione libera');
         break;
       case 'concordato':
-        percentualeApplicata = (aliquota as any)['%_locato_concordato'];
+        percentualeApplicata = aliquota['%_locato_concordato'];
         console.log('📋 Applicata aliquota locazione concordata');
         break;
       case 'transitorio':
-        percentualeApplicata = (aliquota as any)['%_locato_transitorio'];
+        percentualeApplicata = aliquota['%_locato_transitorio'];
         console.log('⏱️ Applicata aliquota locazione transitoria');
         break;
       case 'studenti':
-        percentualeApplicata = (aliquota as any)['%_locato_studenti'];
+        percentualeApplicata = aliquota['%_locato_studenti'];
         console.log('🎓 Applicata aliquota locazione studenti');
         break;
       case 'comodato_parenti':
-        percentualeApplicata = (aliquota as any)['%_comodato_parenti'];
+        percentualeApplicata = aliquota['%_comodato_parenti'];
         console.log('👨‍👩‍👧‍👦 Applicata aliquota comodato parenti');
         break;
       case 'none':
       default:
-        percentualeApplicata = (aliquota as any)['%_default'];
+        percentualeApplicata = aliquota['%_default'];
         console.log('⚖️ Applicata aliquota default');
         break;
     }

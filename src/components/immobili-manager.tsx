@@ -22,7 +22,7 @@ export function ImmoiliManager() {
   const [immobili, setImmobili] = useState<Immobile[]>([]);
   const [calcoloInCorso, setCalcoloInCorso] = useState(false);
   const [uploadInCorso, setUploadInCorso] = useState(false);
-  const [risultatoIMU, setRisultatoIMU] = useState<any>(null);
+  const [risultatoIMU, setRisultatoIMU] = useState<{ imu_totale: number; dettaglio_per_immobile: Array<{ id: string; aliquota_utilizzata: number; base_imponibile: number; imu_calcolata: number; }> } | null>(null);
   const [showReportBanner, setShowReportBanner] = useState(false);
 
   const handleAddImmobile = (immobile: Omit<Immobile, 'id'>) => {
@@ -200,7 +200,7 @@ export function ImmoiliManager() {
             {risultatoIMU.dettaglio_per_immobile && risultatoIMU.dettaglio_per_immobile.length > 0 && (
               <div className="space-y-2">
                 <h4 className="font-medium text-gray-800">Dettaglio per immobile:</h4>
-                {risultatoIMU.dettaglio_per_immobile.map((dettaglio: any, index: number) => {
+                {risultatoIMU.dettaglio_per_immobile.map((dettaglio: { id: string; aliquota_utilizzata: number; base_imponibile: number; imu_calcolata: number; }, index: number) => {
                   const immobile = immobili.find(i => i.id === dettaglio.id);
                   return (
                     <div key={index} className="bg-white rounded-lg p-3 border border-gray-200">

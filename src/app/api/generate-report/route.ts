@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createTransporter, sendReportEmail } from '../../../lib/email-sender';
-import { generateReportPDF } from '../../../lib/pdf-generator';
+import { generateReportPDF } from '@/lib/pdf-generator';
+import { sendReportEmail } from '@/lib/email-sender';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,14 +11,14 @@ export async function POST(request: NextRequest) {
     
     if (!email || !risultatoIMU || !immobili) {
       return NextResponse.json(
-        { error: 'Email, risultato IMU e immobili sono richiesti' },
+        { error: 'Dati mancanti: email, risultatoIMU e immobili sono richiesti' },
         { status: 400 }
       );
     }
     
     console.log('📄 Generazione PDF in corso...');
     
-    // Genera il PDF del report
+    // Genera il PDF
     const pdfBuffer = await generateReportPDF({
       immobili,
       risultatoIMU,
@@ -27,8 +27,8 @@ export async function POST(request: NextRequest) {
     
     console.log('📧 Invio email in corso...');
     
-    // Invia l'email con il PDF allegato
-    await sendReportEmail({
+    // Invia l'email
+    const emailResult = await sendReportEmail({
       to: email,
       pdfBuffer,
       risultatoIMU
@@ -36,15 +36,20 @@ export async function POST(request: NextRequest) {
     
     console.log('✅ Report inviato con successo a:', email);
     
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Report inviato con successo' 
+    return NextResponse.json({
+      success: true,
+      message: 'Report generato e inviato con successo!',
+      emailId: emailResult.data?.id
     });
     
   } catch (error) {
     console.error('❌ Errore nella generazione/invio report:', error);
+    
     return NextResponse.json(
-      { error: 'Errore nella generazione del report' },
+      { 
+        error: 'Errore nella generazione del report',
+        details: error instanceof Error ? error.message : 'Errore sconosciuto'
+      },
       { status: 500 }
     );
   }

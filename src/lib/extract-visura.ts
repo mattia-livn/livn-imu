@@ -62,7 +62,7 @@ export async function extractVisuraData(pdfBuffer: Buffer): Promise<VisuraData> 
     console.log('🔍 Inizio estrazione PDF...');
     
     // Importa pdf-parse senza richiedere file esterni
-    const pdfParse = require('pdf-parse');
+    const pdfParse = await import('pdf-parse');
     
     // Estrai il testo dal PDF
     const data = await pdfParse(pdfBuffer);

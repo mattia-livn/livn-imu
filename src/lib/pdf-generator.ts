@@ -3,7 +3,7 @@ import { Immobile } from './types';
 
 interface ReportData {
   immobili: Immobile[];
-  risultatoIMU: any;
+  risultatoIMU: { imu_totale: number; dettaglio_per_immobile: Array<{ id: string; aliquota_utilizzata: number; base_imponibile: number; imu_calcolata: number; }> };
   dataGenerazione: Date;
 }
 
@@ -60,7 +60,11 @@ export async function generateReportPDF(data: ReportData): Promise<Buffer> {
   
   immobili.forEach((immobile, index) => {
     // Trova il dettaglio di calcolo per questo immobile
-    const dettaglio = risultatoIMU.dettaglio_per_immobile?.find((d: any) => d.id === immobile.id) || {};
+    const dettaglio = risultatoIMU.dettaglio_per_immobile?.find((d) => d.id === immobile.id) || {
+      aliquota_utilizzata: 0,
+      base_imponibile: 0,
+      imu_calcolata: 0
+    };
     
     // Intestazione immobile
     doc.setFontSize(12);
