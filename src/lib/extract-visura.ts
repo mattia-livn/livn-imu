@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import pdfParse from 'pdf-parse/lib/pdf-parse.js';
+import pdfParse from 'pdf-parse';
 
 // Tipo per un singolo immobile estratto
 export interface ImmobileData {
@@ -58,11 +58,7 @@ export async function extractVisuraData(pdfBuffer: Buffer): Promise<VisuraData> 
     
     // Estrai il testo dal PDF
     console.log('📄 Inizio parsing PDF...');
-    const data = await pdfParse(pdfBuffer, {
-      // Opzioni per evitare il caricamento di file di test
-      max: 0, // Nessun limite di pagine
-      version: 'v2.0.0' // Usa la versione più recente
-    });
+    const data = await pdfParse(pdfBuffer);
     const textContent = data.text;
     console.log('📝 Lunghezza testo estratto:', textContent.length);
     console.log('📄 Testo estratto (primi 500 caratteri):', textContent.substring(0, 500));

@@ -1,9 +1,4 @@
-declare module 'pdf-parse/lib/pdf-parse.js' {
-  interface PDFParseOptions {
-    max?: number;
-    version?: string;
-  }
-
+declare module 'pdf-parse' {
   interface PDFParseResult {
     text: string;
     numpages: number;
@@ -13,6 +8,6 @@ declare module 'pdf-parse/lib/pdf-parse.js' {
     version: string;
   }
 
-  function pdfParse(dataBuffer: Buffer, options?: PDFParseOptions): Promise<PDFParseResult>;
+  function pdfParse(dataBuffer: Buffer): Promise<PDFParseResult>;
   export default pdfParse;
 } 
