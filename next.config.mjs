@@ -20,13 +20,6 @@ const nextConfig = {
     };
     
     return config;
-  },
-  // Supporto per package esterni
-  serverExternalPackages: ['pdf-parse'],
-  
-  // Configurazione per development
-  experimental: {
-    allowedDevOrigins: ['192.168.1.86']
   }
 };
 
