@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateReportPDF } from '@/lib/pdf-generator';
 import { sendReportEmail } from '@/lib/email-sender';
 
-// Indica a Next.js che questa route è dinamica
+// Configurazione route
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs'; // Forza l'uso del Node.js runtime
 
 export async function POST(request: NextRequest) {
   try {
