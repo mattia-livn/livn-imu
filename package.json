@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",
+    "browserify-zlib": "^0.2.0",
+    "crypto-browserify": "^3.12.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
     "lucide-react": "^0.517.0",
@@ -19,7 +21,9 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "resend": "^4.6.0",
-    "styled-jsx": "^5.1.7"
+    "stream-browserify": "^3.0.0",
+    "styled-jsx": "^5.1.7",
+    "util": "^0.12.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
