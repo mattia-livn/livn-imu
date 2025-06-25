@@ -105,11 +105,15 @@ export async function extractVisuraData(pdfBuffer: Buffer): Promise<VisuraData> 
 
     // Prova a parsare la risposta JSON
     try {
-      // Rimuovi eventuali backtick e indicatori di codice
+      // Rimuovi eventuali backtick, indicatori di codice e testo esplicativo
       const cleanResponse = responseText
         .replace(/```json/g, '')
         .replace(/```/g, '')
+        .replace(/^[^{]*/g, '') // Rimuove tutto il testo prima della prima parentesi graffa
+        .replace(/}[^}]*$/g, '}') // Mantiene solo l'ultima parentesi graffa
         .trim();
+      
+      console.log('🧹 Risposta pulita:', cleanResponse);
       
       const data = JSON.parse(cleanResponse) as VisuraData;
       
