@@ -1,7 +1,6 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  webpack: (config: any) => {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  webpack: (config) => {
     // Configurazione per pdf-parse
     config.resolve.alias = {
       ...config.resolve.alias,
