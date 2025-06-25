@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
+module.exports = {
   webpack: (config) => {
     // Configurazione per pdf-parse
     config.resolve.alias = {
@@ -19,14 +19,12 @@ const nextConfig = {
       ...config.resolve.fallback,
       fs: false,
       path: false,
-      stream: 'stream-browserify',
-      zlib: 'browserify-zlib',
-      util: 'util/',
-      crypto: 'crypto-browserify'
+      stream: false,
+      zlib: false,
+      util: false,
+      crypto: false
     };
     
     return config;
   }
 };
-
-export default nextConfig;
