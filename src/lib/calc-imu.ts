@@ -8,11 +8,11 @@ interface ImmobileInput {
   provincia: string;
   categoria: string;
   rendita: number;
-  esenzioni?: {
-    prima_casa?: boolean;
-    esenzione_rurale?: boolean;
-    esenzione_parziale?: boolean;
-  };
+  tipo_contratto: 'none' | 'libero' | 'concordato' | 'transitorio' | 'studenti' | 'comodato';
+  abitazione_principale: boolean;
+  pertinenza: boolean;
+  pertinenza_di: string | null;
+  anno: number;
 }
 
 interface ConfigurazioneFiscale {
@@ -20,6 +20,17 @@ interface ConfigurazioneFiscale {
   aliquota_prima_casa: number;
   detrazione_prima_casa: number;
   moltiplicatore_categoria: Record<string, number>;
+}
+
+interface AliquoteIMU {
+  '%_default': number;
+  '%_abitazione_principale': number | null;
+  '%_abitazione_principale_lusso': number;
+  '%_locato_libero': number;
+  '%_locato_concordato': number;
+  '%_locato_transitorio': number;
+  '%_locato_studenti': number;
+  '%_comodato_parenti': number;
 }
 
 interface RisultatoCalcoloImmobile {
@@ -97,45 +108,46 @@ const MOLTIPLICATORI_CATASTALI: Record<string, number> = {
   'E/9': 80
 };
 
+// Categorie di immobili di lusso
+const CATEGORIE_LUSSO = ['A/1', 'A/8', 'A/9'];
+
+// Categorie ammesse come pertinenze
+const CATEGORIE_PERTINENZE = ['C/2', 'C/6', 'C/7'];
+
 /**
  * Ottiene la configurazione fiscale per un comune dal database
  */
 async function getConfigurazioneFiscale(provincia: string, citta: string): Promise<ConfigurazioneFiscale> {
   try {
-    // Se Supabase non è configurato, usa i valori di default
     if (!supabase) {
       console.warn(`⚠️ Supabase non configurato - usando valori default per ${citta} (${provincia})`);
       return getConfigurazioneDefault();
     }
 
     const { data, error } = await supabase
-      .from('aliquote_imu')
-      .select('aliquota_normale, aliquota_prima_casa, detrazione_prima_casa')
+      .from('imu_aliquote')
+      .select('"%_default", "%_abitazione_principale", "%_abitazione_principale_lusso", "%_locato_libero", "%_locato_concordato", "%_locato_transitorio", "%_locato_studenti", "%_comodato_parenti"')
       .eq('provincia', provincia.toUpperCase())
       .ilike('comune', citta)
-      .limit(1);
+      .limit(1)
+      .single();
 
     if (error) {
       console.warn(`Errore ricerca aliquote per ${citta} (${provincia}):`, error);
       return getConfigurazioneDefault();
     }
 
-    if (!data || data.length === 0) {
-      console.warn(`Aliquote non trovate per ${citta} (${provincia}). Usando valori di default.`);
-      return getConfigurazioneDefault();
-    }
-
-    const aliquotes = data[0];
+    const aliquotes = data as AliquoteIMU;
     
     return {
-      aliquota_normale: Number(aliquotes.aliquota_normale) || 0.86, // Default 0.86%
-      aliquota_prima_casa: Number(aliquotes.aliquota_prima_casa) || 0.4, // Default 0.4%
-      detrazione_prima_casa: Number(aliquotes.detrazione_prima_casa) || 200, // Default €200
+      aliquota_normale: Number(aliquotes['%_default']) || 0.86,
+      aliquota_prima_casa: Number(aliquotes['%_abitazione_principale']) || 0.4,
+      detrazione_prima_casa: 200,
       moltiplicatore_categoria: MOLTIPLICATORI_CATASTALI
     };
 
   } catch (error) {
-    console.error('Errore nel recupero aliquotes:', error);
+    console.error('Errore nel recupero aliquote:', error);
     return getConfigurazioneDefault();
   }
 }
@@ -153,31 +165,91 @@ function getConfigurazioneDefault(): ConfigurazioneFiscale {
 }
 
 /**
+ * Determina l'aliquota da applicare in base alle caratteristiche dell'immobile
+ */
+function determinaAliquota(immobile: ImmobileInput, aliquotes: AliquoteIMU, immobili: ImmobileInput[]): number {
+  // 1. Abitazione principale
+  if (immobile.abitazione_principale) {
+    if (CATEGORIE_LUSSO.includes(immobile.categoria)) {
+      return Number(aliquotes['%_abitazione_principale_lusso']);
+    }
+    return Number(aliquotes['%_abitazione_principale'] || 0);
+  }
+
+  // 2. Pertinenza di abitazione principale
+  if (immobile.pertinenza && immobile.pertinenza_di) {
+    const abitazionePrincipale = immobili.find(i => i.id === immobile.pertinenza_di);
+    
+    // Verifica che sia effettivamente pertinenza di un'abitazione principale
+    if (abitazionePrincipale?.abitazione_principale) {
+      // Verifica che sia una categoria ammessa come pertinenza
+      if (CATEGORIE_PERTINENZE.includes(immobile.categoria)) {
+        // Trova tutte le pertinenze della stessa categoria per questa abitazione principale
+        const pertinenzeStefaCategoria = immobili.filter(i => 
+          i.pertinenza_di === immobile.pertinenza_di &&
+          i.categoria === immobile.categoria
+        );
+
+        // Ordina per rendita decrescente
+        pertinenzeStefaCategoria.sort((a, b) => b.rendita - a.rendita);
+
+        // Se è la pertinenza con rendita più alta della sua categoria
+        if (pertinenzeStefaCategoria[0]?.id === immobile.id) {
+          // Applica stessa aliquota dell'abitazione principale
+          if (CATEGORIE_LUSSO.includes(abitazionePrincipale.categoria)) {
+            return Number(aliquotes['%_abitazione_principale_lusso']);
+          }
+          return Number(aliquotes['%_abitazione_principale'] || 0);
+        }
+      }
+    }
+  }
+
+  // 3. Contratti di locazione
+  if (immobile.tipo_contratto !== 'none') {
+    const mappaAliquotes: Record<string, keyof AliquoteIMU> = {
+      'libero': '%_locato_libero',
+      'concordato': '%_locato_concordato',
+      'transitorio': '%_locato_transitorio',
+      'studenti': '%_locato_studenti',
+      'comodato': '%_comodato_parenti'
+    };
+
+    const chiaveAliquota = mappaAliquotes[immobile.tipo_contratto];
+    if (chiaveAliquota) {
+      return Number(aliquotes[chiaveAliquota]);
+    }
+  }
+
+  // 4. Default per tutti gli altri casi
+  return Number(aliquotes['%_default']);
+}
+
+/**
  * Calcola l'IMU per un singolo immobile
  */
 function calcolaIMUPerImmobile(
-  immobile: ImmobileInput, 
-  configurazione: ConfigurazioneFiscale
+  immobile: ImmobileInput,
+  configurazione: ConfigurazioneFiscale,
+  aliquotes: AliquoteIMU,
+  immobili: ImmobileInput[]
 ): RisultatoCalcoloImmobile {
   // 1. Calcolo base imponibile
-  const moltiplicatore = configurazione.moltiplicatore_categoria[immobile.categoria] || 126;
-  const baseImponibile = immobile.rendita * moltiplicatore;
+  const moltiplicatore = configurazione.moltiplicatore_categoria[immobile.categoria] || 160;
+  const baseImponibile = immobile.rendita * 1.05 * moltiplicatore;
   
-  // 2. Verifica se è prima casa
-  const isPrimaCasa = immobile.esenzioni?.prima_casa || false;
+  // 2. Determina aliquota da applicare
+  const aliquotaPercentuale = determinaAliquota(immobile, aliquotes, immobili);
   
-  // 3. Selezione aliquota
-  const aliquotaPercentuale = isPrimaCasa 
-    ? configurazione.aliquota_prima_casa 
-    : configurazione.aliquota_normale;
-  
-  // 4. Calcolo IMU base
+  // 3. Calcolo IMU base
   const imuBase = (baseImponibile * aliquotaPercentuale) / 100;
   
-  // 5. Applicazione detrazione prima casa
-  const detrazioneApplicata = isPrimaCasa ? configurazione.detrazione_prima_casa : 0;
+  // 4. Applicazione detrazione prima casa
+  const detrazioneApplicata = (immobile.abitazione_principale && !CATEGORIE_LUSSO.includes(immobile.categoria)) 
+    ? configurazione.detrazione_prima_casa 
+    : 0;
   
-  // 6. Calcolo IMU finale (minimo 0)
+  // 5. Calcolo IMU finale (minimo 0)
   const imuFinale = Math.max(0, imuBase - detrazioneApplicata);
   
   return {
@@ -186,7 +258,7 @@ function calcolaIMUPerImmobile(
     base_imponibile: baseImponibile,
     imu_calcolata: Number(imuFinale.toFixed(2)),
     detrazione_applicata: detrazioneApplicata,
-    prima_casa: isPrimaCasa
+    prima_casa: immobile.abitazione_principale
   };
 }
 
@@ -200,12 +272,64 @@ export async function calcolaIMUCompleto(immobili: ImmobileInput[]): Promise<Ris
       new Set(immobili.map(i => `${i.provincia}|${i.citta}`))
     );
     
-    // Crea una mappa delle configurazioni per comune
+    // Crea una mappa delle configurazioni e aliquote per comune
     const configurazioniPerComune: Record<string, ConfigurazioneFiscale> = {};
+    const aliquotePerComune: Record<string, AliquoteIMU> = {};
     
     for (const comuneKey of comuniUnique) {
       const [provincia, citta] = comuneKey.split('|');
-      configurazioniPerComune[comuneKey] = await getConfigurazioneFiscale(provincia, citta);
+      
+      // Se Supabase non è configurato, usa i valori di default
+      if (!supabase) {
+        console.warn(`⚠️ Supabase non configurato - usando valori default per ${citta} (${provincia})`);
+        configurazioniPerComune[comuneKey] = getConfigurazioneDefault();
+        aliquotePerComune[comuneKey] = {
+          '%_default': 0.86,
+          '%_abitazione_principale': 0.4,
+          '%_abitazione_principale_lusso': 0.6,
+          '%_locato_libero': 1.06,
+          '%_locato_concordato': 0.575,
+          '%_locato_transitorio': 0.575,
+          '%_locato_studenti': 0.575,
+          '%_comodato_parenti': 1.06
+        };
+        continue;
+      }
+      
+      // Ottieni i dati da Supabase
+      const { data, error } = await supabase
+        .from('imu_aliquote')
+        .select('"%_default", "%_abitazione_principale", "%_abitazione_principale_lusso", "%_locato_libero", "%_locato_concordato", "%_locato_transitorio", "%_locato_studenti", "%_comodato_parenti"')
+        .eq('provincia', provincia.toUpperCase())
+        .ilike('comune', citta)
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.warn(`Errore ricerca aliquote per ${citta} (${provincia}):`, error);
+        configurazioniPerComune[comuneKey] = getConfigurazioneDefault();
+        aliquotePerComune[comuneKey] = {
+          '%_default': 0.86,
+          '%_abitazione_principale': 0.4,
+          '%_abitazione_principale_lusso': 0.6,
+          '%_locato_libero': 1.06,
+          '%_locato_concordato': 0.575,
+          '%_locato_transitorio': 0.575,
+          '%_locato_studenti': 0.575,
+          '%_comodato_parenti': 1.06
+        };
+        continue;
+      }
+
+      const aliquotes = data as AliquoteIMU;
+      aliquotePerComune[comuneKey] = aliquotes;
+      
+      configurazioniPerComune[comuneKey] = {
+        aliquota_normale: Number(aliquotes['%_default']) || 0.86,
+        aliquota_prima_casa: Number(aliquotes['%_abitazione_principale']) || 0.4,
+        detrazione_prima_casa: 200,
+        moltiplicatore_categoria: MOLTIPLICATORI_CATASTALI
+      };
     }
     
     // Calcola IMU per ogni immobile
@@ -214,8 +338,9 @@ export async function calcolaIMUCompleto(immobili: ImmobileInput[]): Promise<Ris
     for (const immobile of immobili) {
       const comuneKey = `${immobile.provincia}|${immobile.citta}`;
       const configurazione = configurazioniPerComune[comuneKey];
+      const aliquotes = aliquotePerComune[comuneKey];
       
-      const risultatoImmobile = calcolaIMUPerImmobile(immobile, configurazione);
+      const risultatoImmobile = calcolaIMUPerImmobile(immobile, configurazione, aliquotes, immobili);
       dettaglioPerImmobile.push(risultatoImmobile);
     }
     

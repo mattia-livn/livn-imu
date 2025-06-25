@@ -110,29 +110,30 @@ export async function extractVisuraData(pdfBuffer: Buffer): Promise<VisuraData> 
     console.log('📋 Risposta OpenAI:', responseText);
 
     // Prova a parsare la risposta JSON
-    let extractedData: VisuraData;
     try {
-      extractedData = JSON.parse(responseText.trim());
-    } catch {
+      // Cerca di trovare l'inizio del JSON nella risposta
+      const jsonStart = responseText.indexOf('{');
+      const jsonEnd = responseText.lastIndexOf('}');
+      
+      if (jsonStart === -1 || jsonEnd === -1) {
+        throw new Error('JSON non trovato nella risposta');
+      }
+      
+      const jsonString = responseText.substring(jsonStart, jsonEnd + 1);
+      const data = JSON.parse(jsonString) as VisuraData;
+      
+      // Valida i dati estratti
+      if (!data.immobili || !Array.isArray(data.immobili)) {
+        throw new Error('Formato dati non valido');
+      }
+
+      console.log('🎯 Estrazione completata con successo:', data);
+      
+      return data;
+    } catch (error) {
       console.error('Errore nel parsing della risposta OpenAI:', responseText);
       throw new Error('Formato di risposta non valido da OpenAI');
     }
-
-    // Valida i dati estratti
-    if (!extractedData.immobili || !Array.isArray(extractedData.immobili) || extractedData.immobili.length === 0) {
-      throw new Error('Nessun immobile trovato nella visura');
-    }
-
-    // Valida ogni immobile
-    for (const immobile of extractedData.immobili) {
-      if (!immobile.indirizzo || !immobile.comune || !immobile.provincia || 
-          !immobile.categoria || typeof immobile.rendita !== 'number') {
-        throw new Error('Dati di un immobile incompleti o non validi');
-      }
-    }
-
-    console.log('🎯 Estrazione completata con successo:', extractedData);
-    return extractedData;
   } catch (error) {
     console.error('❌ Errore nell\'estrazione della visura:', error);
     throw error;

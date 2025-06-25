@@ -1,4 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Livn IMU Calculator
+
+Un'applicazione web per il calcolo dell'IMU basata su Next.js e Supabase.
+
+## Caratteristiche
+
+- 📄 Upload e parsing automatico di visure catastali
+- 🤖 Estrazione automatica dei dati degli immobili con OpenAI
+- 💰 Calcolo IMU con gestione di:
+  - Abitazione principale e pertinenze
+  - Contratti di locazione (libero, concordato, transitorio, studenti)
+  - Comodato d'uso gratuito a parenti
+  - Aliquote specifiche per comune
+
+## Requisiti
+
+- Node.js 18.x o superiore
+- Un account Supabase con database configurato
+- Un account OpenAI per l'estrazione dei dati
+
+## Configurazione
+
+1. Clona il repository
+```bash
+git clone https://github.com/yourusername/livn-imu.git
+cd livn-imu
+```
+
+2. Installa le dipendenze
+```bash
+npm install
+```
+
+3. Crea un file `.env.local` con le seguenti variabili:
+```env
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_key
+OPENAI_API_KEY=your_openai_api_key
+```
+
+4. Avvia il server di sviluppo
+```bash
+npm run dev
+```
+
+## Struttura Database
+
+Il database Supabase richiede una tabella `imu_aliquote` con la seguente struttura:
+- `id`: bigint (primary key)
+- `anno`: integer
+- `comune`: text
+- `provincia`: text
+- `categoria`: text
+- `%_default`: numeric
+- `%_abitazione_principale`: numeric
+- `%_abitazione_principale_lusso`: numeric
+- `%_locato_libero`: numeric
+- `%_locato_concordato`: numeric
+- `%_locato_transitorio`: numeric
+- `%_locato_studenti`: numeric
+- `%_comodato_parenti`: numeric
+
+## Deploy
+
+L'app è ottimizzata per il deploy su Vercel. Per deployare:
+
+1. Importa il repository su Vercel
+2. Configura le variabili d'ambiente
+3. Deploy!
+
+## Licenza
+
+MIT
 
 ## Getting Started
 
