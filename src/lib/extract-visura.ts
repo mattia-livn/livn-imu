@@ -20,8 +20,8 @@ const openai = new OpenAI({
 });
 
 // Prompt per l'estrazione dei dati
-const EXTRACTION_PROMPT = `Ti invio il contenuto testuale di una visura catastale italiana.  
-Estrai TUTTI gli immobili presenti nella visura e per ognuno estrai i seguenti dati:
+const EXTRACTION_PROMPT = `Sei un assistente specializzato nell'estrazione di dati da visure catastali italiane.
+Il tuo compito è estrarre TUTTI gli immobili presenti nella visura e per ognuno estrarre i seguenti dati:
 
 - indirizzo dell'immobile
 - nome del comune  
@@ -29,17 +29,11 @@ Estrai TUTTI gli immobili presenti nella visura e per ognuno estrai i seguenti d
 - categoria catastale (es. A/2, C/6, ecc.)
 - rendita catastale (solo rendita catastale, in euro)
 
-Il formato di output deve essere esclusivamente un JSON con array di immobili:
+IMPORTANTE: Devi restituire SOLO un oggetto JSON valido, senza alcun testo di spiegazione, commenti o formattazione Markdown.
+Il formato deve essere esattamente:
 
 {
   "immobili": [
-    {
-      "indirizzo": "...",
-      "comune": "...",
-      "provincia": "...",
-      "categoria": "...",
-      "rendita": ...
-    },
     {
       "indirizzo": "...",
       "comune": "...",
@@ -50,7 +44,7 @@ Il formato di output deve essere esclusivamente un JSON con array di immobili:
   ]
 }
 
-Anche se c'è un solo immobile, restituisci sempre un array. Non includere testo di spiegazione o commenti. Solo JSON puro.`;
+NON aggiungere alcun testo prima o dopo il JSON. NON usare formattazione Markdown. NON includere \`\`\`json o altri delimitatori.`;
 
 /**
  * Estrae i dati catastali da un PDF di visura
@@ -111,16 +105,13 @@ export async function extractVisuraData(pdfBuffer: Buffer): Promise<VisuraData> 
 
     // Prova a parsare la risposta JSON
     try {
-      // Cerca di trovare l'inizio del JSON nella risposta
-      const jsonStart = responseText.indexOf('{');
-      const jsonEnd = responseText.lastIndexOf('}');
+      // Rimuovi eventuali backtick e indicatori di codice
+      const cleanResponse = responseText
+        .replace(/```json/g, '')
+        .replace(/```/g, '')
+        .trim();
       
-      if (jsonStart === -1 || jsonEnd === -1) {
-        throw new Error('JSON non trovato nella risposta');
-      }
-      
-      const jsonString = responseText.substring(jsonStart, jsonEnd + 1);
-      const data = JSON.parse(jsonString) as VisuraData;
+      const data = JSON.parse(cleanResponse) as VisuraData;
       
       // Valida i dati estratti
       if (!data.immobili || !Array.isArray(data.immobili)) {
