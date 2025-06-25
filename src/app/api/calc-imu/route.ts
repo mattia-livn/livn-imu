@@ -9,11 +9,11 @@ interface ImmobileInput {
   provincia: string;
   categoria: string;
   rendita: number;
-  esenzioni?: {
-    prima_casa?: boolean;
-    esenzione_rurale?: boolean;
-    esenzione_parziale?: boolean;
-  };
+  tipo_contratto: 'none' | 'libero' | 'concordato' | 'transitorio' | 'studenti' | 'comodato';
+  abitazione_principale: boolean;
+  pertinenza: boolean;
+  pertinenza_di: string | null;
+  anno: number;
 }
 
 export async function POST(request: NextRequest) {
