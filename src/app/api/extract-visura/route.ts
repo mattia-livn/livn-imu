@@ -3,7 +3,6 @@ import { extractVisuraData } from '@/lib/extract-visura';
 
 // Indica a Next.js che questa route è dinamica
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
 
 export async function POST(request: NextRequest) {
   try {

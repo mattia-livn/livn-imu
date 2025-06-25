@@ -4,16 +4,9 @@ module.exports = {
     // Configurazione per pdf-parse
     config.resolve.alias = {
       ...config.resolve.alias,
-      canvas: false,
-      'pdfjs-dist': false
+      canvas: false
     };
     
-    config.externals = config.externals || [];
-    config.externals.push({
-      canvas: 'canvas',
-      'pdfjs-dist': 'pdfjs-dist'
-    });
-
     // Configurazione specifica per pdf-parse
     config.resolve.fallback = {
       ...config.resolve.fallback,
@@ -22,7 +15,10 @@ module.exports = {
       stream: false,
       zlib: false,
       util: false,
-      crypto: false
+      crypto: false,
+      http: false,
+      https: false,
+      url: false
     };
     
     return config;
