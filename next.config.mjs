@@ -19,10 +19,10 @@ const nextConfig = {
       ...config.resolve.fallback,
       fs: false,
       path: false,
-      stream: require.resolve('stream-browserify'),
-      zlib: require.resolve('browserify-zlib'),
-      util: require.resolve('util/'),
-      crypto: require.resolve('crypto-browserify'),
+      stream: 'stream-browserify',
+      zlib: 'browserify-zlib',
+      util: 'util/',
+      crypto: 'crypto-browserify'
     };
     
     return config;
