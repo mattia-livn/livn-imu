@@ -81,87 +81,105 @@ export async function extractVisuraData(pdfBuffer: Buffer): Promise<VisuraData> 
     }
     console.log('✅ Configurazione OpenAI verificata');
 
-    console.log('🤖 Invio richiesta a OpenAI...');
-    // Invia il testo a OpenAI per l'estrazione strutturata
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        {
-          role: 'system',
-          content: EXTRACTION_PROMPT,
-        },
-        {
-          role: 'user',
-          content: `Ecco il contenuto della visura catastale:\n\n${textContent}`,
-        },
-      ],
-      temperature: 0,
-      max_tokens: 500,
-    });
-
-    console.log('✅ Risposta ricevuta da OpenAI');
-    console.log('📋 Risposta OpenAI:', completion.choices[0]?.message?.content);
-
-    const responseText = completion.choices[0]?.message?.content;
-    
-    if (!responseText) {
-      console.error('❌ Risposta OpenAI vuota o nulla');
-      throw new Error('Nessuna risposta ricevuta da OpenAI');
-    }
-
-    console.log('📋 Risposta OpenAI:', responseText);
-
-    // Prova a parsare la risposta JSON
     try {
-      // Rimuovi eventuali backtick, indicatori di codice e testo esplicativo
-      let cleanResponse = responseText
-        .replace(/```json/g, '')
-        .replace(/```/g, '')
-        .trim();
+      console.log('🤖 Invio richiesta a OpenAI...');
+      // Invia il testo a OpenAI per l'estrazione strutturata
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: EXTRACTION_PROMPT,
+          },
+          {
+            role: 'user',
+            content: `Ecco il contenuto della visura catastale:\n\n${textContent}`,
+          },
+        ],
+        temperature: 0,
+        max_tokens: 500,
+      });
+
+      console.log('✅ Risposta ricevuta da OpenAI');
+      console.log('📋 Risposta OpenAI:', completion.choices[0]?.message?.content);
+
+      const responseText = completion.choices[0]?.message?.content;
       
-      // Se la risposta inizia con testo, cerca il primo '{'
-      const jsonStart = cleanResponse.indexOf('{');
-      if (jsonStart > 0) {
-        cleanResponse = cleanResponse.substring(jsonStart);
+      if (!responseText) {
+        console.error('❌ Risposta OpenAI vuota o nulla');
+        throw new Error('Nessuna risposta ricevuta da OpenAI');
       }
-      
-      // Se la risposta ha testo dopo l'ultimo '}', rimuovilo
-      const jsonEnd = cleanResponse.lastIndexOf('}');
-      if (jsonEnd < cleanResponse.length - 1) {
-        cleanResponse = cleanResponse.substring(0, jsonEnd + 1);
-      }
-      
-      console.log('🧹 Risposta pulita:', cleanResponse);
-      
+
+      console.log('📋 Risposta OpenAI:', responseText);
+
+      // Prova a parsare la risposta JSON
       try {
-        const data = JSON.parse(cleanResponse) as VisuraData;
+        // Rimuovi eventuali backtick, indicatori di codice e testo esplicativo
+        let cleanResponse = responseText
+          .replace(/```json/g, '')
+          .replace(/```/g, '')
+          .trim();
         
-        // Valida i dati estratti
-        if (!data.immobili || !Array.isArray(data.immobili)) {
-          console.error('❌ Dati non validi:', data);
-          throw new Error('Formato dati non valido');
+        // Se la risposta inizia con testo, cerca il primo '{'
+        const jsonStart = cleanResponse.indexOf('{');
+        if (jsonStart > 0) {
+          cleanResponse = cleanResponse.substring(jsonStart);
         }
-
-        // Valida ogni immobile
-        for (const immobile of data.immobili) {
-          if (!immobile.indirizzo || !immobile.comune || !immobile.provincia || 
-              !immobile.categoria || typeof immobile.rendita !== 'number') {
-            console.error('❌ Immobile non valido:', immobile);
-            throw new Error('Dati immobile non validi');
+        
+        // Se la risposta ha testo dopo l'ultimo '}', rimuovilo
+        const jsonEnd = cleanResponse.lastIndexOf('}');
+        if (jsonEnd < cleanResponse.length - 1) {
+          cleanResponse = cleanResponse.substring(0, jsonEnd + 1);
+        }
+        
+        console.log('🧹 Risposta pulita:', cleanResponse);
+        
+        try {
+          const data = JSON.parse(cleanResponse) as VisuraData;
+          
+          // Valida i dati estratti
+          if (!data.immobili || !Array.isArray(data.immobili)) {
+            console.error('❌ Dati non validi:', data);
+            throw new Error('Formato dati non valido');
           }
-        }
 
-        console.log('🎯 Estrazione completata con successo:', data);
-        
-        return data;
-      } catch (parseError) {
-        console.error('❌ Errore nel parsing JSON:', parseError);
-        throw new Error('Formato JSON non valido');
+          // Valida ogni immobile
+          for (const immobile of data.immobili) {
+            if (!immobile.indirizzo || !immobile.comune || !immobile.provincia || 
+                !immobile.categoria || typeof immobile.rendita !== 'number') {
+              console.error('❌ Immobile non valido:', immobile);
+              throw new Error('Dati immobile non validi');
+            }
+          }
+
+          console.log('🎯 Estrazione completata con successo:', data);
+          
+          return data;
+        } catch (parseError) {
+          console.error('❌ Errore nel parsing JSON:', parseError);
+          throw new Error('Formato JSON non valido');
+        }
+      } catch (error) {
+        console.error('❌ Errore nel processing della risposta OpenAI:', error);
+        throw error;
       }
-    } catch (error) {
-      console.error('❌ Errore nel processing della risposta OpenAI:', error);
-      throw error;
+    } catch (openaiError) {
+      console.error('❌ Errore specifico OpenAI:', openaiError);
+      if (openaiError instanceof Error) {
+        // Verifica se l'errore è dovuto alla chiave API
+        if (openaiError.message.includes('API key')) {
+          throw new Error('Errore di autenticazione OpenAI: controlla la chiave API');
+        }
+        // Verifica se l'errore è dovuto al modello non disponibile
+        if (openaiError.message.includes('model')) {
+          throw new Error('Errore con il modello GPT-4: verifica che sia abilitato per la tua chiave API');
+        }
+        // Altri errori OpenAI
+        throw new Error(`Errore OpenAI: ${openaiError.message}`);
+      }
+      throw openaiError;
     }
+
   } catch (error) {
     console.error('❌ Errore durante l\'estrazione:', error);
     if (error instanceof Error) {
