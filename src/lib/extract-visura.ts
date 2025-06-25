@@ -56,26 +56,32 @@ export async function extractVisuraData(pdfBuffer: Buffer): Promise<VisuraData> 
     console.log('🔍 Inizio estrazione PDF...');
     
     // Importa pdf-parse senza richiedere file esterni
+    console.log('📚 Importazione modulo pdf-parse...');
     const pdfParseModule = await import('pdf-parse');
     const pdfParse = pdfParseModule.default;
+    console.log('✅ Modulo pdf-parse importato');
     
     // Estrai il testo dal PDF
+    console.log('📄 Inizio parsing PDF...');
     const data = await pdfParse(pdfBuffer);
     const textContent = data.text;
-
+    console.log('📝 Lunghezza testo estratto:', textContent.length);
     console.log('📄 Testo estratto (primi 500 caratteri):', textContent.substring(0, 500));
 
     if (!textContent || textContent.trim().length === 0) {
+      console.error('❌ Testo PDF vuoto o nullo');
       throw new Error('Impossibile estrarre testo dal PDF');
     }
 
-    console.log('🤖 Invio richiesta a OpenAI...');
-
+    console.log('🤖 Verifica configurazione OpenAI...');
     // Verifica che la chiave OpenAI sia configurata
     if (!process.env.OPENAI_API_KEY) {
+      console.error('❌ Chiave API OpenAI non configurata');
       throw new Error('Chiave API OpenAI non configurata. Controllare .env.local');
     }
+    console.log('✅ Configurazione OpenAI verificata');
 
+    console.log('🤖 Invio richiesta a OpenAI...');
     // Invia il testo a OpenAI per l'estrazione strutturata
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
@@ -94,10 +100,12 @@ export async function extractVisuraData(pdfBuffer: Buffer): Promise<VisuraData> 
     });
 
     console.log('✅ Risposta ricevuta da OpenAI');
+    console.log('📋 Risposta OpenAI:', completion.choices[0]?.message?.content);
 
     const responseText = completion.choices[0]?.message?.content;
     
     if (!responseText) {
+      console.error('❌ Risposta OpenAI vuota o nulla');
       throw new Error('Nessuna risposta ricevuta da OpenAI');
     }
 
@@ -106,31 +114,63 @@ export async function extractVisuraData(pdfBuffer: Buffer): Promise<VisuraData> 
     // Prova a parsare la risposta JSON
     try {
       // Rimuovi eventuali backtick, indicatori di codice e testo esplicativo
-      const cleanResponse = responseText
+      let cleanResponse = responseText
         .replace(/```json/g, '')
         .replace(/```/g, '')
-        .replace(/^[^{]*/g, '') // Rimuove tutto il testo prima della prima parentesi graffa
-        .replace(/}[^}]*$/g, '}') // Mantiene solo l'ultima parentesi graffa
         .trim();
+      
+      // Se la risposta inizia con testo, cerca il primo '{'
+      const jsonStart = cleanResponse.indexOf('{');
+      if (jsonStart > 0) {
+        cleanResponse = cleanResponse.substring(jsonStart);
+      }
+      
+      // Se la risposta ha testo dopo l'ultimo '}', rimuovilo
+      const jsonEnd = cleanResponse.lastIndexOf('}');
+      if (jsonEnd < cleanResponse.length - 1) {
+        cleanResponse = cleanResponse.substring(0, jsonEnd + 1);
+      }
       
       console.log('🧹 Risposta pulita:', cleanResponse);
       
-      const data = JSON.parse(cleanResponse) as VisuraData;
-      
-      // Valida i dati estratti
-      if (!data.immobili || !Array.isArray(data.immobili)) {
-        throw new Error('Formato dati non valido');
-      }
+      try {
+        const data = JSON.parse(cleanResponse) as VisuraData;
+        
+        // Valida i dati estratti
+        if (!data.immobili || !Array.isArray(data.immobili)) {
+          console.error('❌ Dati non validi:', data);
+          throw new Error('Formato dati non valido');
+        }
 
-      console.log('🎯 Estrazione completata con successo:', data);
-      
-      return data;
+        // Valida ogni immobile
+        for (const immobile of data.immobili) {
+          if (!immobile.indirizzo || !immobile.comune || !immobile.provincia || 
+              !immobile.categoria || typeof immobile.rendita !== 'number') {
+            console.error('❌ Immobile non valido:', immobile);
+            throw new Error('Dati immobile non validi');
+          }
+        }
+
+        console.log('🎯 Estrazione completata con successo:', data);
+        
+        return data;
+      } catch (parseError) {
+        console.error('❌ Errore nel parsing JSON:', parseError);
+        throw new Error('Formato JSON non valido');
+      }
     } catch (error) {
-      console.error('Errore nel parsing della risposta OpenAI:', responseText);
-      throw new Error('Formato di risposta non valido da OpenAI');
+      console.error('❌ Errore nel processing della risposta OpenAI:', error);
+      throw error;
     }
   } catch (error) {
-    console.error('❌ Errore nell\'estrazione della visura:', error);
+    console.error('❌ Errore durante l\'estrazione:', error);
+    if (error instanceof Error) {
+      console.error('Dettagli errore:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+    }
     throw error;
   }
 } 
